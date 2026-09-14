@@ -15,6 +15,8 @@
 #include <fstream>
 #include <print>
 #include <string>
+#include <vector>
+#include <map>
 
 int main(int argc, char** argv) {
     // Аргументы разбираются грубо: путь к журналу и ничего больше. Остальное,
@@ -30,16 +32,24 @@ int main(int argc, char** argv) {
         return 2;
     }
 
+    bool quiet = false;
+
+    if (argc == 3){
+        if (std::string_view(argv[2]) == "--quiet") quiet = true;
+    }
+
     long long lines = 0;
     long long comments = 0;
+    //bool quiet = argv[2] == "--quiet" ? false : true;
     std::string line;
+    std::map<std::string, int> encounters;
 
     while (std::getline(log, line)) {
         // Счётчик увеличивается до всех проверок: он считает строки файла,
         // а не события. Номер, посчитанный по событиям, бесполезен — по нему
         // нельзя открыть файл и посмотреть.
         ++lines;
-
+        
         // Строки-комментарии в журнале начинаются с '#'. Они не события,
         // и детекта по ним быть не должно.
         if (!line.empty() && line[0] == '#') {
@@ -51,8 +61,27 @@ int main(int argc, char** argv) {
         //
         // Проверка признаков и печать детекта. Номер строки, который нужен
         // в выводе, — это lines.
+        std::vector<std::string> targets = {"wscript.exe", ".locked", "certutil.exe", "\\Startup\\"};
+
+        int start_pos = line.find("type=")+5;
+        int end_pos = line.find("pid=")-1;
+        std::string name = line.substr(start_pos, end_pos-start_pos);
+        encounters[name]++;
+
+        for (const auto& target : targets){
+            auto pos = line.find(target);
+            if (pos != std::string::npos){
+                std::print("[DETECT] строка {}, признак {}: {}\n", lines, target, line);
+            }
+        }
     }
 
-    std::print("строк {}, из них комментариев {}\n", lines, comments);
+    if (!quiet){
+        std::print("строк {}, из них комментариев {}\n", lines, comments);
+        for (auto it = encounters.begin(); it != encounters.end(); it++){
+            std::print("{} {} \n", it->first, it->second);
+        }
+    }
+
     return 0;
 }
