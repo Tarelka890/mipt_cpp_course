@@ -1,16 +1,3 @@
-// Каркас агента: читает журнал событий построчно и считает строки.
-//
-// Это заготовка занятия 1.1, а не решение. Детектов она не ищет — их вы
-// добавите здесь же, в отмеченном месте ниже. Формат строки детекта, список
-// признаков и правило про их порядок заданы в постановке занятия: по ним
-// сравниваются эталоны.
-//
-// Весь код лежит в main, и на этом занятии так и надо: функции появятся
-// на занятии 1.2, ссылки — на 1.3. Разбор аргументов, коды возврата и флаг
-// --quiet — часть задания.
-//
-// Запуск:
-//   nano-edr <журнал.log>
 #include <cstdio>
 #include <fstream>
 #include <print>
@@ -18,9 +5,13 @@
 #include <vector>
 #include <map>
 
+#include <parse.h>
+#include <event_list.h>
+
+const size_t context_size = 2;
+
 int main(int argc, char** argv) {
-    // Аргументы разбираются грубо: путь к журналу и ничего больше. Остальное,
-    // включая --quiet, добавляется по заданию.
+
     if (argc < 2) {
         std::print(stderr, "использование: nano-edr <журнал.log>\n");
         return 2;
@@ -33,45 +24,80 @@ int main(int argc, char** argv) {
     }
 
     bool quiet = false;
+    long long window_size = 64;
 
-    if (argc == 3){
-        if (std::string_view(argv[2]) == "--quiet") quiet = true;
+    for (int16_t i=0;i<argc;i++){
+        if (std::string_view(argv[i]) == "--quiet") quiet = true;
+        else if (std::string_view(argv[i]) == "--window-size"){
+            if (i+1 < argc){
+                try{
+                    window_size = std::stoll(argv[i+1]);
+                }
+                catch(const std::exception& e){
+                    window_size = 64;
+                }
+            }
+        }
     }
 
     long long lines = 0;
     long long comments = 0;
-    //bool quiet = argv[2] == "--quiet" ? false : true;
+    bool found = false;
     std::string line;
     std::map<std::string, int> encounters;
+    std::vector<std::string> targets = {"wscript.exe", ".locked", "certutil.exe", "\\Startup\\"};
+    nano_edr::EventList events;
+    nano_edr::EventNode* context_pointer = nullptr;
+    size_t last_size = 0;
+    events.capacity = window_size;
 
     while (std::getline(log, line)) {
-        // Счётчик увеличивается до всех проверок: он считает строки файла,
-        // а не события. Номер, посчитанный по событиям, бесполезен — по нему
-        // нельзя открыть файл и посмотреть.
         ++lines;
         
-        // Строки-комментарии в журнале начинаются с '#'. Они не события,
-        // и детекта по ним быть не должно.
-        if (!line.empty() && line[0] == '#') {
+        if (nano_edr::IsBlankOrComment(&line)) {
             ++comments;
             continue;
         }
 
-        // >>> Здесь начинается занятие 1.1.
-        //
-        // Проверка признаков и печать детекта. Номер строки, который нужен
-        // в выводе, — это lines.
-        std::vector<std::string> targets = {"wscript.exe", ".locked", "certutil.exe", "\\Startup\\"};
+        last_size = events.size;
 
-        int start_pos = line.find("type=")+5;
-        int end_pos = line.find("pid=")-1;
-        std::string name = line.substr(start_pos, end_pos-start_pos);
-        encounters[name]++;
+        nano_edr::Event current;
+        nano_edr::ParseEventLine(&line, &current);
 
+        encounters[current.type]++;
+
+        found = false;
         for (const auto& target : targets){
-            auto pos = line.find(target);
-            if (pos != std::string::npos){
-                std::print("[DETECT] строка {}, признак {}: {}\n", lines, target, line);
+            for (const auto& field : current.fields){
+                if (field.value.find(target) != std::string::npos){
+                    std::print("[DETECT] строка {}, признак {}: {}\n", lines, target, line);
+                    found = true;
+                    break;
+                }
+            }
+        }
+
+        if (!quiet && found){
+            nano_edr::EventNode* curr = context_pointer;
+            size_t i = std::min(context_size, size_t{events.size});
+            while (curr != nullptr){
+                std::print("[CTX] {}: ts={} type={} pid={}\n", -static_cast<long long>(i), curr->event.ts, curr->event.type, curr->event.pid);
+                curr = curr->next;
+                i--;
+            }
+        }
+
+
+        nano_edr::ListPushBack(&events, &current);
+        if (!last_size){
+            context_pointer = events.head;
+        }
+        else if (events.size <= context_size){
+            context_pointer = events.head;
+        }
+        else{
+            if (context_pointer != nullptr){
+                context_pointer = context_pointer->next;
             }
         }
     }
@@ -79,7 +105,7 @@ int main(int argc, char** argv) {
     if (!quiet){
         std::print("строк {}, из них комментариев {}\n", lines, comments);
         for (auto it = encounters.begin(); it != encounters.end(); it++){
-            std::print("{} {} \n", it->first, it->second);
+            std::print("{}: {} \n", it->first, it->second);
         }
     }
 
