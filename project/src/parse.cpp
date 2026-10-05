@@ -1,16 +1,16 @@
 #include <parse.h>
-#include <event.h>
+
 #include <print>
 
 const char* ws = " \t";
 
 namespace nano_edr {
-    bool ParseEventLine(const std::string* line, Event* out){
+    bool ParseEventParts(const std::string& line, EventParts* out){
         if (IsBlankOrComment(line)) return false;
+        
+        *out = EventParts();
 
-        *out = Event();
-
-        const std::string& str = *line;
+        const std::string& str = line;
 
         std::string key = "";
         std::string value = "";
@@ -74,12 +74,12 @@ namespace nano_edr {
         return true;
     };
 
-    bool IsBlankOrComment(const std::string* line){
-        if (line->empty()) return true;
+    bool IsBlankOrComment(const std::string& line){
+        if (line.empty()) return true;
 
-        size_t pos = line->find_first_not_of(ws);
+        size_t pos = line.find_first_not_of(ws);
         if (pos == std::string::npos) return true;
 
-        return (*line)[pos] == '#' || (*line)[pos] == ';';
+        return line[pos] == '#' || line[pos] == ';';
     };
 }
