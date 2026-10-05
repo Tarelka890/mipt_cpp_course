@@ -7,49 +7,86 @@
 
 #include <parse.h>
 #include <event_list.h>
+#include <rules.h>
+#include <agent_rules.h>
+#include <event.h>
+#include <fields.h>
 
 const size_t context_size = 2;
 
-int main(int argc, char** argv) {
-
-    if (argc < 2) {
-        std::print(stderr, "использование: nano-edr <журнал.log>\n");
-        return 2;
-    }
-
-    std::ifstream log(argv[1]);
-    if (!log) {
-        std::print(stderr, "не удалось открыть журнал: {}\n", argv[1]);
-        return 2;
-    }
-
+struct Config {
+    std::string log_path;
     bool quiet = false;
     long long window_size = 64;
+};
 
-    for (int16_t i=0;i<argc;i++){
-        if (std::string_view(argv[i]) == "--quiet") quiet = true;
+// nano_edr::Event SanitizeEvent(const nano_edr::Event& event){
+//     nano_edr::Event copy = event;
+//     for (auto& field : copy.fields){
+//         if (field.key == "path" || field.key == "to" || field.key == "image" || field.key == "from") {
+//             field.value = nano_edr::NormalizePath(field.value);
+//         }
+//     }
+//     return copy;
+// }
+
+bool ParseArguments(int argc, char** argv, Config& config){
+    if (argc < 2) {
+        std::print(stderr, "использование: nano-edr <журнал.log>\n");
+        return false;
+    }
+
+    for (int i=1;i<argc;i++){
+        if (std::string_view(argv[i]) == "--quiet"){
+            config.quiet = true;
+        }
         else if (std::string_view(argv[i]) == "--window-size"){
             if (i+1 < argc){
                 try{
-                    window_size = std::stoll(argv[i+1]);
+                    config.window_size = std::stoll(argv[i+1]);
                 }
                 catch(const std::exception& e){
-                    window_size = 64;
+                    config.window_size = 64;
                 }
+                ++i;
             }
+        }
+        else if (std::string_view(argv[i])[0] != '-'){
+            config.log_path = argv[i];
         }
     }
 
-    long long lines = 0;
-    long long comments = 0;
-    bool found = false;
+    if (config.log_path.empty()) {
+        std::print(stderr, "использование: nano-edr <журнал.log>\n");
+        return false;
+    }
+
+    return true;
+}
+
+void PrintSummary(long long& lines, long long& comments, const std::map<std::string, int>& encounters){
+    std::print("строк {}, из них комментариев {}\n", lines, comments);
+    for (auto it = encounters.begin(); it != encounters.end(); it++){
+        std::print("{}: {} \n", it->first, it->second);
+    }
+}
+
+void PrintContext(nano_edr::EventList& events, nano_edr::EventNode* context_pointer){
+    nano_edr::EventNode* curr = context_pointer;
+    size_t i = std::min(context_size, size_t{events.size});
+    while (curr != nullptr){
+        std::print("[CTX] {}: ts={} type={} pid={}\n", -static_cast<long long>(i), curr->event.ts, curr->event.type, curr->event.pid);
+        curr = curr->next;
+        i--;
+    }
+}
+
+void ProcessLogStream(std::ifstream& log, Config& config, long long& lines, long long& comments, std::map<std::string, int>& encounters){
     std::string line;
-    std::map<std::string, int> encounters;
-    std::vector<std::string> targets = {"wscript.exe", ".locked", "certutil.exe", "\\Startup\\"};
     nano_edr::EventList events;
     nano_edr::EventNode* context_pointer = nullptr;
-    size_t last_size = 0;
-    events.capacity = window_size;
+
+    events.capacity = config.window_size;
 
     while (std::getline(log, line)) {
         ++lines;
@@ -59,40 +96,24 @@ int main(int argc, char** argv) {
             continue;
         }
 
-        last_size = events.size;
-
         nano_edr::Event current;
-        nano_edr::ParseEventLine(&line, &current);
+        if (!nano_edr::ParseEventLine(&line, &current)){
+            continue;
+        }
+
+        // current = SanitizeEvent(current);
 
         encounters[current.type]++;
 
-        found = false;
-        for (const auto& target : targets){
-            for (const auto& field : current.fields){
-                if (field.value.find(target) != std::string::npos){
-                    std::print("[DETECT] строка {}, признак {}: {}\n", lines, target, line);
-                    found = true;
-                    break;
-                }
+        if (nano_edr::CheckRules(current, nano_edr::AgentRules(), nano_edr::AgentRuleCount())){
+            if (!config.quiet){
+                PrintContext(events, context_pointer);
             }
         }
-
-        if (!quiet && found){
-            nano_edr::EventNode* curr = context_pointer;
-            size_t i = std::min(context_size, size_t{events.size});
-            while (curr != nullptr){
-                std::print("[CTX] {}: ts={} type={} pid={}\n", -static_cast<long long>(i), curr->event.ts, curr->event.type, curr->event.pid);
-                curr = curr->next;
-                i--;
-            }
-        }
-
 
         nano_edr::ListPushBack(&events, &current);
-        if (!last_size){
-            context_pointer = events.head;
-        }
-        else if (events.size <= context_size){
+        
+        if (events.size <= context_size){
             context_pointer = events.head;
         }
         else{
@@ -101,13 +122,39 @@ int main(int argc, char** argv) {
             }
         }
     }
+}
 
-    if (!quiet){
-        std::print("строк {}, из них комментариев {}\n", lines, comments);
-        for (auto it = encounters.begin(); it != encounters.end(); it++){
-            std::print("{}: {} \n", it->first, it->second);
+
+int main(int argc, char** argv) {
+    try{
+        Config config;
+
+        if (!ParseArguments(argc, argv, config)){
+            return 2;
         }
+
+        std::ifstream log(config.log_path);
+
+        if (!log){
+            std::print(stderr, "Невозможно открыть журнал {}\n", config.log_path);
+            return 2;
+        }
+
+        long long lines = 0;
+        long long comments = 0;
+        std::map<std::string, int> encounters;
+
+        ProcessLogStream(log, config, lines, comments, encounters);
+
+        if (!config.quiet) {
+            PrintSummary(lines, comments, encounters);
+        }
+        
+        return 0;
+    }
+    catch (const std::exception& error){
+        std::print(stderr, "Прогон прерван из-за ошибки формата: {}\n", error.what());
+        return 1;
     }
 
-    return 0;
 }
