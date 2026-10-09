@@ -6,10 +6,6 @@
 
 namespace nano_edr {
 
-    // constexpr RuleFn file_checks[] = {
-    //     nano_edr::IsFileCreate, nano_edr::IsFileMove, nano_edr::IsFileWrite
-    // };
-
     const std::string lolbin_checks[] = {
         "urlcache", "transfer", "http:", "https:"
     };
@@ -31,7 +27,7 @@ namespace nano_edr {
             "\\appdata\\local\\temp\\", "\\windows\\temp\\"
         };
 
-        if (!nano_edr::IsProcessStart(event)){
+        if (!IsProcessStart(event)){
             return false;
         }
 
@@ -44,7 +40,7 @@ namespace nano_edr {
         }
 
         for (const auto& value : autolaunch_checks){
-            if (nano_edr::CommandLineContains(event, value)){
+            if (CommandLineContains(event, value)){
                 return true;
             }
         }
@@ -53,7 +49,7 @@ namespace nano_edr {
     }
 
     bool LolbinDownload(const Event& event){
-        if (!nano_edr::IsProcessStart(event)){
+        if (!IsProcessStart(event)){
             return false;
         }
 
@@ -66,7 +62,7 @@ namespace nano_edr {
         }
 
         for (const auto& value : lolbin_checks){
-            if (nano_edr::CommandLineContains(event, value)){
+            if (CommandLineContains(event, value)){
                 return true;
             }
         }
@@ -75,7 +71,7 @@ namespace nano_edr {
     }
 
     bool HiddenPowershell(const Event& event){
-        if (!nano_edr::IsProcessStart(event)){
+        if (!IsProcessStart(event)){
             return false;
         }
 
@@ -88,7 +84,7 @@ namespace nano_edr {
         }
 
         for (const auto& value : powershell_checks){
-            if (nano_edr::CommandLineContains(event, value)){
+            if (CommandLineContains(event, value)){
                 return true;
             }
         }
@@ -97,14 +93,14 @@ namespace nano_edr {
     }
 
     bool AutostartWrite(const Event& event){
-        if (nano_edr::IsFileCreate(event) || nano_edr::IsFileWrite(event)){
-            if (nano_edr::FieldContains(event, "path", "\\start menu\\programs\\startup\\")){
+        if (IsFileCreate(event) || IsFileWrite(event)){
+            if (FieldContains(event, "path", "\\start menu\\programs\\startup\\")){
                 return true;
             }
         }
         
-        if (nano_edr::IsFileMove(event)){
-            if (nano_edr::FieldContains(event, "to", "\\start menu\\programs\\startup\\")){
+        if (IsFileMove(event)){
+            if (FieldContains(event, "to", "\\start menu\\programs\\startup\\")){
                 return true;
             }
         }
@@ -113,14 +109,14 @@ namespace nano_edr {
     }
 
     bool RansomExtension(const Event& event){
-        if (nano_edr::IsFileCreate(event) || nano_edr::IsFileWrite(event)){
-            if (nano_edr::FieldEndsWith(event, "path", ".locked")){
+        if (IsFileCreate(event) || IsFileWrite(event)){
+            if (FieldEndsWith(event, "path", ".locked")){
                 return true;
             }
         }
 
-        if (nano_edr::IsFileMove(event)){
-            if (nano_edr::FieldEndsWith(event, "to", ".locked")){
+        if (IsFileMove(event)){
+            if (FieldEndsWith(event, "to", ".locked")){
                 return true;
             }
         }
@@ -128,39 +124,30 @@ namespace nano_edr {
         return false;
     }
 
-    // bool FieldStartsWith(const Event& event, const std::string& key, const std::string& prefix){
-    //     const std::string* field_pointer = nano_edr::FindField(event, key);
-    //     if (field_pointer == nullptr){
-    //         return false;
-    //     }
-    //     std::string line = nano_edr::NormalizePath(*field_pointer);
-    //     return line.starts_with(prefix);
-    // }
-
     bool FieldContains(const Event& event, const std::string& key, const std::string& needle){
-        const std::string* field_pointer = nano_edr::FindField(event, key);
+        const std::string* field_pointer = FindField(event, key);
         if (field_pointer == nullptr){
             return false;
         }
-        std::string line = nano_edr::NormalizePath(*field_pointer);
+        std::string line = NormalizePath(*field_pointer);
         return line.find(needle) != std::string::npos;
     }
 
     bool FieldEndsWith(const Event& event, const std::string& key, const std::string& suffix){
-        const std::string* field_pointer = nano_edr::FindField(event, key);
+        const std::string* field_pointer = FindField(event, key);
         if (field_pointer == nullptr) {
             return false;
         }
-        std::string line = nano_edr::NormalizePath(*field_pointer);
+        std::string line = NormalizePath(*field_pointer);
         return line.ends_with(suffix);
     }
 
     bool IsFileCreate(const Event& event){
-        return event.type == "file_create";
+        return event.type() == "file_create";
     }
 
     bool IsFileMove(const Event& event){
-        return event.type == "file_move";
+        return event.type() == "file_move";
     }
 
     const Rule* AgentRules() {

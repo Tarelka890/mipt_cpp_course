@@ -82,4 +82,5 @@ namespace nano_edr {
 
         return line[pos] == '#' || line[pos] == ';';
     };
+
 }

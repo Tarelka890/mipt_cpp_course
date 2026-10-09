@@ -19,7 +19,11 @@ namespace nano_edr {
 // на неё — расточительство, а событий будет два миллиона. Указатель
 // действителен столько же, сколько само событие.
 const std::string* FindField(const Event& event, const std::string& key){
-    for (const auto& field : event.fields){
+    if (key == "ts") return &(event.raw_ts());
+    if (key == "type") return &(event.type());
+    if (key == "pid") return &(event.pid());
+    
+    for (const auto& field : event.fields()){
         if (field.key == key){
             return &(field.value);
         }
@@ -38,12 +42,11 @@ const std::string* FindField(const Event& event, const std::string& key){
 // бы соврать вызывающему. Сообщение исключения называет поле: диагностика,
 // по которой нельзя найти причину, — половина диагностики.
 const std::string& GetRequiredField(const Event& event, const std::string& key){
-    for (const auto& field : event.fields){
-        if (field.key == key){
-            return field.value;
-        }
+    const std::string* result = FindField(event, key);
+    if (result == nullptr){
+        throw std::invalid_argument(key);
     }
-    throw std::invalid_argument(key);
+    return *result;
 }
 
 
@@ -51,7 +54,7 @@ const std::string& GetRequiredField(const Event& event, const std::string& key){
 // бывает не реже первого: значение приходит из внешнего источника,
 // и «size=абв» — битые данные, а не ошибка программы.
 bool GetIntField(const Event& event, const std::string& key, uint64_t* out){
-    for (const auto& field : event.fields){
+    for (const auto& field : event.fields()){
         if (field.key == key){
             if (field.value.empty()){
                 return false;
@@ -91,13 +94,13 @@ uint64_t GetIntField(const Event& event, const std::string& key, uint64_t fallba
 }
 
 bool IsProcessStart(const Event& event){
-    return event.type == "process_start";
+    return event.type() == "process_start";
 }
 bool IsFileWrite(const Event& event){
-    return event.type == "file_write";
+    return event.type() == "file_write";
 }
 bool IsNetConnect(const Event& event){
-    return event.type == "net_connect";
+    return event.type() == "net_connect";
 }
 
 // Проверка суффикса path с end_with. Нет поля - false, это не исключение, есть события без этого поля
