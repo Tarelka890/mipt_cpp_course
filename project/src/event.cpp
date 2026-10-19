@@ -1,4 +1,5 @@
 #include <event.h>
+#include <cstring>
 
 namespace nano_edr{
     Event::Event(const EventParts& parts){
@@ -6,21 +7,19 @@ namespace nano_edr{
             throw std::invalid_argument("ts/type is empty");
         }
 
-        try {
-            std::size_t index = 0;
-            uint64_t parsed = std::stoull(parts.ts, &index);
+        uint64_t parsed;
 
-            if (index != parts.ts.length()) {
-                throw std::invalid_argument(std::format("invalid characters: {}", parts.ts));
-            }
+        auto [ptr, ec] = std::from_chars(parts.ts.data(), parts.ts.data() + parts.ts.size(), parsed);
 
-            ts_ = Timestamp(parsed); 
-
-        } catch (const std::invalid_argument&) {
-            throw std::invalid_argument(std::format("invalid timestamp format: {}", parts.ts));
-        } catch (const std::out_of_range&) {
-            throw std::invalid_argument(std::format("value is out of range (too large): {}", parts.ts));
+        if (ptr != parts.ts.data() + parts.ts.size()){
+            throw std::invalid_argument(std::format("didn't parse the whole string: {}", parts.ts));
         }
+        if (ec == std::errc::invalid_argument)
+            throw std::invalid_argument(std::format("invalid timestamp format: {}", parts.ts));
+        else if (ec == std::errc::result_out_of_range)
+            throw std::invalid_argument(std::format("value is out of range (too large): {}", parts.ts));
+
+        ts_ = Timestamp(parsed); 
 
         raw_ts_ = parts.ts;
         type_ = parts.type;

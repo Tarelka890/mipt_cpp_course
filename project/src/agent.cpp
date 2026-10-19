@@ -1,12 +1,12 @@
-#include <agent.h>
+#include <headers/agent.h>
+#include <headers/agent_rules.h>
+
 #include <parse.h>
 #include <rules.h>
-#include <agent_rules.h>
 #include <iostream>
-#include <os_handle.h>
 
 namespace nano_edr{
-    Agent::Agent(std::size_t window_size, bool quiet) : window_(window_size), quiet_(quiet) {}
+    Agent::Agent(std::size_t window_size, bool quiet) : window_(window_size), quiet_(quiet), rules_(BuildAgentRules()) {}
 
     void Agent::Trampoline(const os_event* ev, void* ctx) noexcept{
         try{
@@ -30,16 +30,23 @@ namespace nano_edr{
             Event event(parts);
             agent->HandleEvent(event);
         }
-        catch(...){
-
+        catch(const std::exception& e){
+            std::print(stderr, "ooops something broke inside agent::trampoline {}", e.what());
         }
     }
 
     void Agent::HandleEvent(const Event& event){
-        if (CheckRules(event, AgentRules(), AgentRuleCount())){
-            if (!quiet()){
-                PrintContext();
+        bool found = false;
+
+        for (size_t i = 0; i < rules_.size(); ++i) {
+            if (rules_[i].Check(event)) {
+                found = true;
+                std::print("[DETECT] {}  {}  ts={} pid={}\n", SeverityName(rules_[i].severity()), rules_[i].id(), event.raw_ts(), event.pid());
             }
+        }
+
+        if (found && !quiet()){
+            PrintContext();
         }
 
         window_.PushBack(event);
@@ -55,9 +62,9 @@ namespace nano_edr{
     }
 
     void Agent::PrintSummary(){
-        std::print("строк {}, из них комментариев {}\n", lines(), comments());
-        for (auto it = encounters_.begin(); it != encounters_.end(); it++){
-            std::print("{}: {} \n", it->first, it->second);
+        std::print("правила, детектов:");
+        for (size_t i = 0; i < rules_.size(); i++){
+            std::print("{}: {} \n", rules_[i].id(), rules_[i].hits());
         }
     }
 
@@ -71,83 +78,8 @@ namespace nano_edr{
         }
     }
 
-    const long long& Agent::lines(){
-        return lines_;
-    }
-
-    const long long& Agent::comments(){
-        return comments_;
-    }
-
-    void Agent::inc_comments(){
-        comments_++;
-    }
-
-    void Agent::inc_lines(){
-        lines_++;
-    }
-
-    void Agent::UpdateEncounters(const Event& current){
-        encounters_[current.type()]++;
-    }
-
     bool Agent::quiet(){
         return quiet_;
     }
     
-
-    FileSource::FileSource(const std::string& path) : log_(path) {
-        if (!log_.is_open()) {
-            throw std::runtime_error(path);
-        }
-    }
-
-    void FileSource::Run(Agent* agent){
-        std::string line;
-
-        while (std::getline(log_, line)) {
-            agent->inc_lines();
-            
-            if (IsBlankOrComment(line)) {
-                agent->inc_comments();
-                continue;
-            }
-
-            EventParts parts;
-            if (!ParseEventParts(line, &parts)){
-                continue;
-            }
-
-            try{
-                Event current(parts);
-                agent->HandleEvent(current);
-                agent->UpdateEncounters(current);
-            }
-            catch (...){
-                continue;
-            }
-
-        }
-
-        // end
-        if (!agent->quiet()) {
-            agent->PrintSummary();
-        }
-    }
-
-    OsSource::OsSource(const std::string& config_path) : handle_(config_path) {}
-
-    void OsSource::Run(Agent* agent){
-        handle_.Subscribe(&Agent::Trampoline, agent);
-        handle_.Start();
-
-        os_status status = OS_TIMEOUT;
-        while (status == OS_TIMEOUT) {
-            status = handle_.Wait(100); 
-        }
-
-        if (status != OS_OK) {
-            throw std::runtime_error("OsSource handle error");
-        }
-    }
 }

@@ -1,19 +1,23 @@
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <print>
 #include <string>
 #include <vector>
 #include <map>
 
-#include <agent.h>
 #include <parse.h>
 #include <event_list.h>
 #include <rules.h>
-#include <agent_rules.h>
 #include <event.h>
 #include <fields.h>
 #include <os_handle.h>
 #include <os.h>
+
+#include <headers/file_source.h>
+#include <headers/os_source.h>
+#include <headers/agent_rules.h>
+#include <headers/agent.h>
 
 struct Config {
     std::string log_path;
@@ -36,10 +40,8 @@ bool ParseArguments(int argc, char** argv, Config& config){
         }
         else if (std::string_view(argv[i]) == "--window-size"){
             if (i+1 < argc){
-                try{
-                    config.window_size = std::stoll(argv[i+1]);
-                }
-                catch(const std::exception& e){
+                auto [ptr, ec] = std::from_chars(argv[i+1], argv[i+1] + std::strlen(argv[i+1]), config.window_size);
+                if (ec != std::errc{}){
                     config.window_size = 64;
                 }
                 ++i;
@@ -97,16 +99,12 @@ int main(int argc, char** argv) {
             return 0;
         }
 
-        
-        std::ifstream log(config.log_path);
-
-        if (!log){
-            std::print(stderr, "Невозможно открыть журнал {}\n", config.log_path);
-            return 1;
-        }
-
         nano_edr::FileSource file(config.log_path);
         file.Run(&agent);
+
+        if (!agent.quiet()) {
+            agent.PrintSummary();
+        }
 
         return 0;
     }

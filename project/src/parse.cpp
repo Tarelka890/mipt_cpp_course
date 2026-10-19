@@ -70,7 +70,7 @@ namespace nano_edr {
         
         }
 
-        if ((out->ts.empty()) || (out->type.empty())) return false;
+        // if ((out->ts.empty()) || (out->type.empty())) return false;
         return true;
     };
 

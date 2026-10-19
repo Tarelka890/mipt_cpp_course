@@ -14,7 +14,6 @@ namespace nano_edr {
         }
     }
 
-    // Зовёт os_free: тот сам останавливает поток и пишет отчёт. Не бросает.
     OsHandle::~OsHandle(){
         os_free(handle_);
     }
@@ -23,7 +22,7 @@ namespace nano_edr {
         os_status status = os_event_subscribe(handle_, callback, context);
 
         if (status != OS_OK){
-            std::string error = std::format("cannot subscribe to callback");
+            std::string error = std::format("cannot subscribe to callback, error code: {}", os_status_str(status));
             throw std::runtime_error(error);
         }
     }
@@ -31,7 +30,7 @@ namespace nano_edr {
     void OsHandle::Start(){
         os_status status = os_start(handle_);
         if (status != OS_OK){
-            std::string error = std::format("cannot start");
+            std::string error = std::format("cannot start, error code: {}", os_status_str(status));
             throw std::runtime_error(error);
         }
     }
