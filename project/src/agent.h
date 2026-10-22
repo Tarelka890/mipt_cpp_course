@@ -18,8 +18,6 @@ namespace nano_edr{
             // static void Trampoline(const os_event* ev, void* ctx) noexcept;
 
             void PrintSummary();  // сводка в конце прогона
-            void PrintContext();
-            bool quiet();
 
             // Оба источника: пришло событие. Тело — как на шаге 6.
             void HandleEvent(const Event& event) override;
@@ -34,6 +32,8 @@ namespace nano_edr{
             // OsSource: Wait вернул OS_TIMEOUT, новых событий пока нет.
             void OnTick() override;
         private:
+            void PrintContext();
+            
             const EventNode* context_pointer_ = nullptr;
             RuleEngine engine_;
             EventList window_;

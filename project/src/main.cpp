@@ -103,10 +103,8 @@ int main(int argc, char** argv) {
         }
         source->Run(&agent);
 
-        if (!agent.quiet()) {
-            agent.PrintSummary();
-        }
-
+        agent.PrintSummary();
+    
         return 0;
     }
     catch (const std::exception& error){

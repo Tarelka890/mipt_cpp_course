@@ -43,7 +43,7 @@ namespace nano_edr {
         }
 
         if (status != OS_OK) {
-            throw std::runtime_error(std::format("OsSource handle error {}\n", os_status_str(status)));
+            throw std::runtime_error(std::format("OsSource handle error {}", os_status_str(status)));
         }
     }
 

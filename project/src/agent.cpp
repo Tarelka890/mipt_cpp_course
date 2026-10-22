@@ -17,7 +17,7 @@ namespace nano_edr{
     }
 
     void Agent::OnTick(){
-        // ??????? метод пустой. а все работает
+        //...
     }
     
     void Agent::HandleEvent(const Event& event){
@@ -29,7 +29,7 @@ namespace nano_edr{
             std::print("[DETECT] {}  {}  ts={} pid={}\n", SeverityName(fired[i]->severity()), fired[i]->id(), event.raw_ts(), event.pid());
         }
 
-        if (found && !quiet()){
+        if (found && !quiet_){
             PrintContext();
         }
 
@@ -46,11 +46,13 @@ namespace nano_edr{
     }
 
     void Agent::PrintSummary(){
-        std::print("правила, детектов:\n");
-        for (size_t i = 0; i < engine_.size(); i++){
-            std::print("{}: {} \n", engine_.rule(i).id(), engine_.rule(i).hits());
+        if (!quiet_){
+            std::print("правила, детектов:\n");
+            for (size_t i = 0; i < engine_.size(); i++){
+                std::print("{}: {} \n", engine_.rule(i).id(), engine_.rule(i).hits());
+            }
+            std::print("пропущено строк: {}, сломано строк: {}\n", skipped_count_, broken_count_);
         }
-        std::print("пропущено строк: {}, сломано строк: {}", skipped_count_, broken_count_);
     }
 
     void Agent::PrintContext(){
@@ -61,10 +63,6 @@ namespace nano_edr{
             curr = curr->next;
             i--;
         }
-    }
-
-    bool Agent::quiet(){
-        return quiet_;
     }
     
 }
