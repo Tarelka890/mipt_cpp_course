@@ -1,4 +1,4 @@
-#include "headers/agent_rules.h"
+#include "agent_rules.h"
 #include <rules.h>
 
 #include <ostream>

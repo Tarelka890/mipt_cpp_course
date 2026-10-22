@@ -23,9 +23,22 @@ namespace nano_edr{
 
         raw_ts_ = parts.ts;
         type_ = parts.type;
+        event_type_ = EventTypeFromString(type_);
         pid_ = parts.pid;
         fields_ = parts.fields;
     
+    }
+
+    EventType EventTypeFromString(const std::string& type){
+        if (type == "process_start") return EventType::kProcessStart;
+        if (type == "process_end") return EventType::kProcessEnd;
+        if (type == "net_connect") return EventType::kNetConnect;
+        if (type == "file_write") return EventType::kFileWrite;
+        if (type == "file_move") return EventType::kFileMove;
+        if (type == "file_delete") return EventType::kFileDelete;
+        if (type == "file_create") return EventType::kFileCreate;
+
+        return EventType::kOther;
     }
 
 

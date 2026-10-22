@@ -6,10 +6,11 @@
 #include "rules.h"
 #include <rule.h>
 #include <vector>
+#include <rule_engine.h>
 
 namespace nano_edr {
 
-    std::vector<MatchRule> BuildAgentRules();
+    RuleEngine BuildAgentRules();
 
 }  // namespace nano_edr
 

@@ -1,5 +1,6 @@
-#include <headers/file_source.h>
+#include <file_source.h>
 #include <parse.h>
+#include <print>
 
 namespace nano_edr {
     FileSource::FileSource(const std::string& path) : log_(path) {
@@ -8,7 +9,7 @@ namespace nano_edr {
         }
     }
 
-    void FileSource::Run(Agent* agent){
+    void FileSource::Run(IEventHandler* handler){
         std::string line;
 
         while (std::getline(log_, line)) {
@@ -23,10 +24,10 @@ namespace nano_edr {
                 }
             
                 Event current(parts);
-                agent->HandleEvent(current);
+                handler->HandleEvent(current);
             }
             catch (const std::exception& e){
-                std::print(stderr, "got a bad line inside filesource::run {}", e.what());
+                std::print(stderr, "got a bad line inside filesource::run {}\n", e.what());
             }
 
         }

@@ -13,11 +13,12 @@
 #include <fields.h>
 #include <os_handle.h>
 #include <os.h>
+#include <event_source.h>
 
-#include <headers/file_source.h>
-#include <headers/os_source.h>
-#include <headers/agent_rules.h>
-#include <headers/agent.h>
+#include <file_source.h>
+#include <os_source.h>
+#include <agent_rules.h>
+#include <agent.h>
 
 struct Config {
     std::string log_path;
@@ -92,15 +93,15 @@ int main(int argc, char** argv) {
 
         nano_edr::Agent agent(config.window_size, config.quiet);
 
+        std::unique_ptr<nano_edr::IEventSource> source;
+
         if (config.run_os){
-            nano_edr::OsSource os(config.log_path);
-            os.Run(&agent);
-
-            return 0;
+            source = std::make_unique<nano_edr::OsSource>(config.log_path);
         }
-
-        nano_edr::FileSource file(config.log_path);
-        file.Run(&agent);
+        else{
+            source = std::make_unique<nano_edr::FileSource>(config.log_path);
+        }
+        source->Run(&agent);
 
         if (!agent.quiet()) {
             agent.PrintSummary();
