@@ -1,58 +1,115 @@
-// Каркас агента: читает журнал событий построчно и считает строки.
-//
-// Это заготовка занятия 1.1, а не решение. Детектов она не ищет — их вы
-// добавите здесь же, в отмеченном месте ниже. Формат строки детекта, список
-// признаков и правило про их порядок заданы в постановке занятия: по ним
-// сравниваются эталоны.
-//
-// Весь код лежит в main, и на этом занятии так и надо: функции появятся
-// на занятии 1.2, ссылки — на 1.3. Разбор аргументов, коды возврата и флаг
-// --quiet — часть задания.
-//
-// Запуск:
-//   nano-edr <журнал.log>
 #include <cstdio>
+#include <cstring>
 #include <fstream>
 #include <print>
 #include <string>
+#include <vector>
+#include <map>
 
-int main(int argc, char** argv) {
-    // Аргументы разбираются грубо: путь к журналу и ничего больше. Остальное,
-    // включая --quiet, добавляется по заданию.
+#include <parse.h>
+#include <event_list.h>
+#include <rules.h>
+#include <event.h>
+#include <fields.h>
+#include <os_handle.h>
+#include <os.h>
+#include <event_source.h>
+
+#include <file_source.h>
+#include <os_source.h>
+#include <agent_rules.h>
+#include <agent.h>
+
+struct Config {
+    std::string log_path;
+    bool quiet = false;
+    bool run_os = true;
+    long long window_size = 64;
+};
+
+bool ParseArguments(int argc, char** argv, Config& config){
     if (argc < 2) {
         std::print(stderr, "использование: nano-edr <журнал.log>\n");
-        return 2;
+        return false;
     }
 
-    std::ifstream log(argv[1]);
-    if (!log) {
-        std::print(stderr, "не удалось открыть журнал: {}\n", argv[1]);
-        return 2;
+    bool path_set = false;
+
+    for (int i=1;i<argc;i++){
+        if (std::string_view(argv[i]) == "--quiet"){
+            config.quiet = true;
+        }
+        else if (std::string_view(argv[i]) == "--window-size"){
+            if (i+1 < argc){
+                auto [ptr, ec] = std::from_chars(argv[i+1], argv[i+1] + std::strlen(argv[i+1]), config.window_size);
+                if (ec != std::errc{}){
+                    config.window_size = 64;
+                }
+                ++i;
+            }
+            else {
+                return false;
+            }
+        }
+        else if (std::string_view(argv[i]) == "--file"){
+            if (i+1 < argc){
+                if (path_set) return false;
+                path_set = true;
+                config.log_path = argv[i+1];
+                config.run_os = false;
+                ++i;
+            }
+            else{
+                return false;
+            }
+        }
+        else if (std::string_view(argv[i])[0] != '-'){
+            if (path_set) return false;
+            path_set = true;
+            config.log_path = argv[i];
+        }
+        else{
+            return false;
+        }
     }
 
-    long long lines = 0;
-    long long comments = 0;
-    std::string line;
+    if (config.log_path.empty()) {
+        std::print(stderr, "использование: nano-edr <журнал.log>\n");
+        return false;
+    }
 
-    while (std::getline(log, line)) {
-        // Счётчик увеличивается до всех проверок: он считает строки файла,
-        // а не события. Номер, посчитанный по событиям, бесполезен — по нему
-        // нельзя открыть файл и посмотреть.
-        ++lines;
+    return true;
+}
 
-        // Строки-комментарии в журнале начинаются с '#'. Они не события,
-        // и детекта по ним быть не должно.
-        if (!line.empty() && line[0] == '#') {
-            ++comments;
-            continue;
+
+int main(int argc, char** argv) {
+    try{
+
+        Config config;
+
+        if (!ParseArguments(argc, argv, config)){
+            return 2;
         }
 
-        // >>> Здесь начинается занятие 1.1.
-        //
-        // Проверка признаков и печать детекта. Номер строки, который нужен
-        // в выводе, — это lines.
+        nano_edr::Agent agent(config.window_size, config.quiet);
+
+        std::unique_ptr<nano_edr::IEventSource> source;
+
+        if (config.run_os){
+            source = std::make_unique<nano_edr::OsSource>(config.log_path);
+        }
+        else{
+            source = std::make_unique<nano_edr::FileSource>(config.log_path);
+        }
+        source->Run(&agent);
+
+        agent.PrintSummary();
+    
+        return 0;
+    }
+    catch (const std::exception& error){
+        std::print(stderr, "Прогон прерван из-за ошибки формата: {}\n", error.what());
+        return 1;
     }
 
-    std::print("строк {}, из них комментариев {}\n", lines, comments);
-    return 0;
 }
