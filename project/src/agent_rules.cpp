@@ -1,10 +1,12 @@
 #include "agent_rules.h"
 #include "fields.h"
 #include "rules.h"
-#include <rule.h>
+#include "rule.h"
+#include "conditions.h"
+
 #include <algorithm>
 #include <string>
-#include <conditions.h>
+
 
 namespace nano_edr {
 

@@ -1,7 +1,8 @@
 #pragma once
 
+#include "event_source.h"
+
 #include <fstream>
-#include <event_source.h>
 
 namespace nano_edr {
     class FileSource : public IEventSource{

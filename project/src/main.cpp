@@ -6,19 +6,19 @@
 #include <vector>
 #include <map>
 
-#include <parse.h>
-#include <event_list.h>
-#include <rules.h>
-#include <event.h>
-#include <fields.h>
-#include <os_handle.h>
-#include <os.h>
-#include <event_source.h>
+#include "parse.h"
+#include "event_list.h"
+#include "rules.h"
+#include "event.h"
+#include "fields.h"
+#include "os_handle.h"
+#include "os.h"
+#include "event_source.h"
 
-#include <file_source.h>
-#include <os_source.h>
-#include <agent_rules.h>
-#include <agent.h>
+#include "file_source.h"
+#include "os_source.h"
+#include "agent_rules.h"
+#include "agent.h"
 
 struct Config {
     std::string log_path;

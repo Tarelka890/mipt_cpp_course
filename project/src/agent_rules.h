@@ -4,9 +4,10 @@
 #pragma once
 
 #include "rules.h"
-#include <rule.h>
+#include "rule.h"
+#include "rule_engine.h"
 #include <vector>
-#include <rule_engine.h>
+
 
 namespace nano_edr {
 

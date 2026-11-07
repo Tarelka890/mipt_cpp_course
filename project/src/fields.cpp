@@ -1,10 +1,12 @@
+#include "event.h"
+#include "fields.h"
+
 #include <cstdint>
 #include <string>
 #include <stdexcept>
 #include <algorithm>
 
-#include "event.h"
-#include <fields.h>
+
 
 
 namespace nano_edr {

@@ -1,15 +1,17 @@
 #pragma once
 
-#include <event.h>
+#include "os_handle.h"
+#include "rule.h"
+#include "rule_engine.h"
+#include "event_source.h"
+#include "event.h"
+#include "event_list.h"
+
 #include <map>
 #include <string>
-#include <event_list.h>
 #include <print>
 #include <fstream>
-#include <os_handle.h>
-#include <rule.h>
-#include <rule_engine.h>
-#include <event_source.h>
+
 
 namespace nano_edr{
     class Agent : public IEventHandler{
