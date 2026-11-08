@@ -6,6 +6,7 @@
 #include "event_source.h"
 #include "event.h"
 #include "event_list.h"
+#include "ring_buffer.h"
 
 #include <map>
 #include <string>
@@ -14,10 +15,20 @@
 
 
 namespace nano_edr{
+    struct WindowEntry {
+        Timestamp ts;
+        std::string type;
+        std::string pid;
+
+        WindowEntry(Timestamp ts, std::string type, std::string pid): ts(ts), type(type), pid(pid) {};
+        WindowEntry() = default;
+    };
+
     class Agent : public IEventHandler{
         public:
-            Agent(std::size_t window_size, bool quiet);  // из --window-size и --quiet
-            // static void Trampoline(const os_event* ev, void* ctx) noexcept;
+            static constexpr std::size_t kWindowCapacity = 256;
+
+            explicit Agent(bool quiet);
 
             void PrintSummary();  // сводка в конце прогона
 
@@ -36,9 +47,8 @@ namespace nano_edr{
         private:
             void PrintContext();
             
-            const EventNode* context_pointer_ = nullptr;
+            RingBuffer<WindowEntry, kWindowCapacity> window_;
             RuleEngine engine_;
-            EventList window_;
             bool quiet_;
             size_t skipped_count_ = 0;
             size_t broken_count_ = 0;
