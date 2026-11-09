@@ -16,11 +16,13 @@ namespace nano_edr {
         while (std::getline(log_, line)) {
             try{
                 if (IsBlankOrComment(line)) {
+                    handler->OnSkipped();
                     continue;
                 }
 
                 EventParts parts;
                 if (!ParseEventParts(line, &parts)){
+                    handler->OnBroken();
                     continue;
                 }
             

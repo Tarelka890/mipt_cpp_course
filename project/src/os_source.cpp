@@ -29,6 +29,9 @@ namespace nano_edr {
             handler->HandleEvent(event);
         }
         catch(const std::exception& e){
+            IEventHandler* handler = static_cast<IEventHandler*>(ctx);
+            handler->OnBroken();
+            
             std::print(stderr, "ooops something broke inside ossource::trampoline {}\n", e.what());
         }
     }

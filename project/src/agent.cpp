@@ -1,12 +1,15 @@
 #include "agent.h"
 #include "agent_rules.h"
-
 #include "parse.h"
-#include <rules.h>
+#include "rules.h"
+
 #include <iostream>
 
 namespace nano_edr{
-    Agent::Agent(std::size_t window_size, bool quiet) : engine_(BuildAgentRules()), window_(window_size), quiet_(quiet) {}
+
+    static constexpr size_t WINDOW_SIZE = 2;
+
+    Agent::Agent(bool quiet) : engine_(BuildAgentRules()), quiet_(quiet) {};
 
     void Agent::OnSkipped(){
         skipped_count_++;
@@ -21,28 +24,21 @@ namespace nano_edr{
     }
     
     void Agent::HandleEvent(const Event& event){
-        bool found = false;
         std::vector<const IRule*> fired;
         engine_.ProcessEvent(event, &fired);
-        for (size_t i = 0; i < fired.size(); ++i) {
-            found = true;
-            std::print("[DETECT] {}  {}  ts={} pid={}\n", SeverityName(fired[i]->severity()), fired[i]->id(), event.raw_ts(), event.pid());
-        }
 
-        if (found && !quiet_){
+        if (!fired.empty() && !quiet_){
             PrintContext();
         }
 
-        window_.PushBack(event);
+        for (size_t i = 0; i < fired.size(); ++i) {
+            std::print("[DETECT] {}  {}  ts={} pid={}\n", SeverityName(fired[i]->severity()), fired[i]->id(), event.raw_ts(), event.pid());
+        }
+
+        WindowEntry entry(event.ts(), event.type(), event.pid());
+
+        window_.PushBack(entry);
         
-        if (window_.size() <= 2){
-            context_pointer_ = window_.head();
-        }
-        else{
-            if (context_pointer_ != nullptr){
-                context_pointer_ = context_pointer_->next;
-            }
-        }
     }
 
     void Agent::PrintSummary(){
@@ -52,17 +48,19 @@ namespace nano_edr{
                 std::print("{}: {} \n", engine_.rule(i).id(), engine_.rule(i).hits());
             }
             std::print("пропущено строк: {}, сломано строк: {}\n", skipped_count_, broken_count_);
+            std::print("[STAT] в окне {} из {} мест\n", window_.size(), window_.capacity());
         }
     }
 
     void Agent::PrintContext(){
-        const EventNode* curr = context_pointer_;
-        size_t i = std::min(size_t{2}, size_t{window_.size()});
-        while (curr != nullptr && i > 0){
-            std::print("[CTX] {}: ts={} type={} pid={}\n", -static_cast<long long>(i), curr->event.raw_ts(), curr->event.type(), curr->event.pid());
-            curr = curr->next;
-            i--;
+        if (window_.size() == 0) return;
+
+        size_t start_index = window_.size() - std::min(WINDOW_SIZE, window_.size());
+
+        for (size_t i=start_index;i<window_.size();i++){
+            std::print("[CTX] {}: {} {} pid={}\n", -static_cast<long long>(window_.size()-i), window_[i].ts.ms, window_[i].type, window_[i].pid);
         }
+
     }
     
 }
