@@ -48,7 +48,7 @@ namespace nano_edr {
         //script_host image checks
         std::unique_ptr<ICondition> script_host_image = MakeCondition(AnyOfStatic(
             FieldEndsWith("image", "wscript.exe"),
-            FieldEndsWith("image", "csript.exe")
+            FieldEndsWith("image", "cscript.exe")
         ));
         script_host_rule->AddCondition(std::move(script_host_image));
         rules.AddRule(std::move(script_host_rule));
@@ -61,7 +61,9 @@ namespace nano_edr {
         //autostart_write path checks
         std::unique_ptr<ICondition> autostart_write_paths = MakeCondition(AnyOfStatic(
             FieldContains("path", "\\start menu\\programs\\startup\\"),
-            FieldContains("path", "/start menu/programs/startup/")
+            FieldContains("path", "/start menu/programs/startup/"),
+            FieldContains("to", "\\start menu\\programs\\startup\\"),
+            FieldContains("to", "/start menu/programs/startup/")
         ));
         autostart_write_rule->AddCondition(std::move(autostart_write_paths));
         rules.AddRule(std::move(autostart_write_rule));
@@ -103,32 +105,18 @@ namespace nano_edr {
         //hidden_powershell cmdline checks
         std::unique_ptr<ICondition> hidden_powershell_cmdline = MakeCondition(AnyOfStatic(
             FieldContains("cmdline", "-w hidden"),
-            FieldContains("cmdline", "transfer"),
-            FieldContains("cmdline", "http:"),
-            FieldContains("cmdline", "https:")
+            FieldContains("cmdline", "-windowstyle hidden"),
+            FieldContains("cmdline", "-enc"),
+            FieldContains("cmdline", "-encodedcommand")
         ));
         hidden_powershell_rule->AddCondition(std::move(hidden_powershell_cmdline));
         rules.AddRule(std::move(hidden_powershell_rule));
 
-        //script_host_beacon first rule image checks
-        std::unique_ptr<ICondition> script_host_beacon_image = MakeCondition(AnyOfStatic(
-            FieldContains("image", "wscript.exe"),
-            FieldContains("image", "cscript.exe")
-        ));
-
-        //script_host_beacon cmdline checks
-        std::unique_ptr<ICondition> script_host_beacon_cmdline = MakeCondition(AnyOfStatic(
-            FieldContains("cmdline", "\\appdata\\local\\temp\\"),
-            FieldContains("cmdline", "\\windows\\temp\\"),
-            FieldContains("cmdline", "/appdata/local/temp/"),
-            FieldContains("cmdline", "/windows/temp/"),
-            FieldContains("cmdline", "%temp%"),
-            FieldContains("cmdline", "%tmp%")
-        ));
-
         //script_host_beacon first rule header
         std::unique_ptr<ICondition> script_host_beacon_rule1 = MakeCondition(AllOfStatic(
             EventTypeIs(std::vector<EventType>{EventType::kProcessStart}),
+
+            //script_host_beacon cmdline checks
             AnyOfStatic(
                 FieldContains("cmdline", "\\appdata\\local\\temp\\"),
                 FieldContains("cmdline", "\\windows\\temp\\"),
@@ -137,9 +125,11 @@ namespace nano_edr {
                 FieldContains("cmdline", "%temp%"),
                 FieldContains("cmdline", "%tmp%")
             ),
+
+            //script_host_beacon first rule image checks
             AnyOfStatic(
-                FieldContains("image", "wscript.exe"),
-                FieldContains("image", "cscript.exe")
+                FieldEndsWith("image", "wscript.exe"),
+                FieldEndsWith("image", "cscript.exe")
             )
         ));
 
