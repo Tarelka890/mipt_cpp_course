@@ -28,7 +28,7 @@ namespace nano_edr{
         public:
             static constexpr std::size_t kWindowCapacity = 256;
 
-            explicit Agent(bool quiet);
+            explicit Agent(bool, uint64_t);
 
             void PrintSummary();  // сводка в конце прогона
 
@@ -44,12 +44,21 @@ namespace nano_edr{
 
             // OsSource: Wait вернул OS_TIMEOUT, новых событий пока нет.
             void OnTick() override;
-        private:
+
+            void Subscribe(AlertSink);
+
+        private: 
+            void PrintContextOnce();
+
             void PrintContext();
             
             RingBuffer<WindowEntry, kWindowCapacity> window_;
+            EntityModel model_;
             RuleEngine engine_;
-            bool quiet_;
+            bool quiet_ = false;
+            bool context_printed_ = false;
+            size_t suppressed_ = 0;
+            size_t dedup_period_ms_;
             size_t skipped_count_ = 0;
             size_t broken_count_ = 0;
     };
