@@ -30,6 +30,7 @@ namespace nano_edr {
                 handler->HandleEvent(current);
             }
             catch (const std::exception& e){
+                handler->OnBroken();
                 std::print(stderr, "got a bad line inside filesource::run {}\n", e.what());
             }
 
