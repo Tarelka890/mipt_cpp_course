@@ -26,7 +26,7 @@ namespace nano_edr {
                     continue;
                 }
             
-                Event current(parts);
+                Event current(std::move(parts));
                 handler->HandleEvent(current);
             }
             catch (const std::exception& e){

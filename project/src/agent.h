@@ -7,6 +7,8 @@
 #include "event.h"
 #include "event_list.h"
 #include "ring_buffer.h"
+#include "window_entry.h"
+#include "response.h"
 
 #include <map>
 #include <string>
@@ -15,14 +17,6 @@
 
 
 namespace nano_edr{
-    struct WindowEntry {
-        Timestamp ts;
-        std::string type;
-        std::string pid;
-
-        WindowEntry(Timestamp ts, std::string type, std::string pid): ts(ts), type(type), pid(pid) {};
-        WindowEntry() = default;
-    };
 
     class Agent : public IEventHandler{
         public:
@@ -47,12 +41,16 @@ namespace nano_edr{
 
             void Subscribe(AlertSink);
 
+            void EnableResponse(OsHandle* os, bool dry_run, const std::string& quarantine_dir);
+
         private: 
             void PrintContextOnce();
 
             void PrintContext();
             
             RingBuffer<WindowEntry, kWindowCapacity> window_;
+            std::unique_ptr<ResponsePlanner> planner_{};
+            std::unique_ptr<Responder> responder_{};  
             EntityModel model_;
             RuleEngine engine_;
             bool quiet_ = false;

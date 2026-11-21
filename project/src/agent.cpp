@@ -29,10 +29,18 @@ namespace nano_edr{
         context_printed_ = false;
         std::vector<const IRule*> fired;
         model_.Observe(event);
-        engine_.ProcessEvent(event, &fired);
 
-        WindowEntry entry(event.ts(), event.type(), event.pid());
-        window_.PushBack(entry);
+        WindowEntry entry;
+        entry.ts = event.ts();
+        entry.type = event.type();
+        entry.pid = event.pid();
+        
+        if (responder_ != nullptr && responder_->Recognize(event)) {
+            window_.PushBack(std::move(entry));
+            return;  
+        }
+        window_.PushBack(std::move(entry));
+        engine_.ProcessEvent(event, &fired);
         
     }
 
@@ -46,6 +54,12 @@ namespace nano_edr{
             std::print("[STAT] в окне {} из {} мест\n", window_.size(), window_.capacity());
             std::print("[STAT] в модели процессов {}, файлов {}\n", model_.process_count(), model_.file_count());
             std::print("[STAT] подавлено дубликатов {} (срок {} мс)\n", suppressed_ , dedup_period_ms_);
+            if (responder_){
+                std::print("[STAT] действий запланировано {}, повторов отброшено {}\n", responder_->stats().planned, responder_->stats().skipped_repeat);
+                std::print("[STAT] завершено процессов {}, изолировано файлов {}, удалено файлов {}\n", responder_->stats().killed, responder_->stats().quarantined, responder_->stats().deleted);
+                std::print("[STAT] своих событий {}\n", responder_->stats().own_events);
+                
+            }
         }
     }
 
@@ -74,5 +88,12 @@ namespace nano_edr{
         }
     }
     
+    void Agent::EnableResponse(OsHandle* os, bool dry_run, const std::string& quarantine_dir) {
+        planner_ = std::make_unique<ResponsePlanner>(&model_, quarantine_dir);
+        responder_ = std::make_unique<Responder>(os, dry_run);
+        engine_.Subscribe([this](const Detection& detection) {
+            responder_->Execute(planner_->Plan(detection));
+        });
+    }
     
 }

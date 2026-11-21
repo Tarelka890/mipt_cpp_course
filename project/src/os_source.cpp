@@ -25,7 +25,7 @@ namespace nano_edr {
                 parts.fields.push_back(Field(ev->fields[i].key, ev->fields[i].value));
             }
 
-            Event event(parts);
+            Event event(std::move(parts));
             handler->HandleEvent(event);
         }
         catch(const std::exception& e){

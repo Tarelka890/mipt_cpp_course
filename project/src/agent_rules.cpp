@@ -19,7 +19,8 @@ namespace nano_edr {
         // ransom_extension header
         auto ransom_extension_rule = MakeRule<MatchRule>("ransom_extension", Severity::kCritical);
         ransom_extension_rule->AddCondition(std::make_unique<EventTypeIs>(std::vector<EventType>{EventType::kFileCreate, EventType::kFileWrite, EventType::kFileMove}));
-        ransom_extension_rule->AddAction("quarantine_file");
+        ransom_extension_rule->AddAction("kill_process");
+        ransom_extension_rule->AddAction("quarantine_image");
 
         // ransom_extension path checks
         std::unique_ptr<ICondition> ransom_extension_paths = MakeCondition(AnyOfStatic(
@@ -33,6 +34,8 @@ namespace nano_edr {
         auto script_host_rule = MakeRule<MatchRule>("script_host_from_temp", Severity::kHigh);
         script_host_rule->AddCondition(std::make_unique<EventTypeIs>(std::vector<EventType>{EventType::kProcessStart}));
         script_host_rule->AddAction("kill_process");
+        script_host_rule->AddAction("quarantine_source");
+        script_host_rule->AddAction("delete_dropped");
 
         //script_host cmdline checks
         std::unique_ptr<ICondition> script_host_cmdline = MakeCondition(AnyOfStatic(
@@ -56,7 +59,7 @@ namespace nano_edr {
         //autostart_write header
         auto autostart_write_rule = MakeRule<MatchRule>("autostart_write", Severity::kHigh);
         autostart_write_rule->AddCondition(std::make_unique<EventTypeIs>(std::vector<EventType>{EventType::kFileCreate, EventType::kFileWrite, EventType::kFileMove}));
-        autostart_write_rule->AddAction("quarantine_file");
+        autostart_write_rule->AddAction("delete_evidence");
 
         //autostart_write path checks
         std::unique_ptr<ICondition> autostart_write_paths = MakeCondition(AnyOfStatic(
@@ -152,7 +155,7 @@ namespace nano_edr {
             )
         )));
         mass_write_rule->AddAction("kill_process");
-        mass_write_rule->AddAction("quarantine_file");
+        mass_write_rule->AddAction("quarantine_image");
         rules.AddRule(std::move(mass_write_rule));
 
 
@@ -200,7 +203,8 @@ namespace nano_edr {
                 return source && !source->writer_pid.empty() && source->writer_pid != event.pid();
             });
         dropped->AddAction("kill_process");
-        dropped->AddAction("quarantine_file");
+        dropped->AddAction("quarantine_source");
+        dropped->AddAction("delete_dropped");
         rules.AddRule(std::move(dropped));
 
         return rules;
