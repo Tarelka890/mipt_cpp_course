@@ -280,7 +280,7 @@ std::unique_ptr<T> my_make_unique(Args... args) {
 auto p = my_make_unique<Point>(3, 4);   // Point(3, 4)
 ```
 
-Один шаблон обслуживает любые типы и любое число аргументов. В настоящем `std::make_unique` вместо `Args...` используется `Args&&...` плюс `std::forward<Args>(args)...` — [идеальная передача](../glossary.md#perfect-forwarding) (perfect forwarding). Это нужно, чтобы корректно передавать [rvalue](../glossary.md#lvalue) и сохранять `const`. `&&` в таком объявлении — не rvalue-ссылка, а [forwarding reference](../glossary.md#forwarding-reference), параметр, который принимает что угодно; как он выводится и зачем нужен, разбирается на лекции 11, когда появится [move-семантика](../glossary.md#move-semantics) (move semantics).
+Один шаблон обслуживает любые типы и любое число аргументов. В настоящем `std::make_unique` вместо `Args...` используется `Args&&...` плюс `std::forward<Args>(args)...` — [идеальная передача](../glossary.md#perfect-forwarding) (perfect forwarding). Это нужно, чтобы корректно передавать [rvalue](../glossary.md#lvalue) и сохранять `const`. `&&` в таком объявлении — не [rvalue-ссылка](../glossary.md#rvalue-reference) (rvalue reference), а [forwarding reference](../glossary.md#forwarding-reference), параметр, который принимает что угодно; как он выводится и зачем нужен, разбирается на лекции 11, когда появится [move-семантика](../glossary.md#move-semantics) (move semantics).
 
 ### `std::tuple`
 
@@ -305,6 +305,47 @@ void print(std::format_string<Args...> fmt, Args&&... args);
 ```
 
 Тоже variadic. Тип каждого `{}` в форматной строке проверяется на этапе компиляции — отсюда type safety. Это и есть преимущество `std::print` и `std::format` над `printf` из C.
+
+### Пакет в частичной специализации: разбор сигнатуры
+
+Пакет бывает не только у функции, но и в паттерне [частичной специализации](../glossary.md#specialization) класса (лекция 8). Самый частый паттерн такого рода — тип функции.
+
+`bool(const std::string&, int)` — это тип: функция, которая принимает строку и число и возвращает `bool`. Указатель на функцию (лекция 7) записывается `bool(*)(const std::string&, int)`; без звёздочки остаётся сама сигнатура. Её можно передать шаблону аргументом, как любой другой тип, и разобрать на части:
+
+```cpp
+template <typename Signature>
+struct SignatureInfo;                     // основной шаблон: объявлен, не определён
+
+template <typename R, typename... Args>
+struct SignatureInfo<R(Args...)> {        // паттерн «функция из Args... в R»
+    using Result = R;
+    static constexpr std::size_t kArity = sizeof...(Args);
+};
+
+using Info = SignatureInfo<bool(const std::string&, int)>;
+Info::Result matched{};                   // bool
+std::println("{}", Info::kArity);         // 2
+
+// SignatureInfo<int> broken;             // CE: incomplete type
+```
+
+Сопоставление идёт так же, как с `Encoder<T, std::string>` на лекции 8: компилятор подставляет `bool(const std::string&, int)` в паттерн `R(Args...)` и находит `R = bool`, `Args = {const std::string&, int}`. Пакет здесь — не аргументы вызова, а список типов параметров, вынутый из сигнатуры.
+
+[Основной шаблон](../glossary.md#primary-template) (primary template) не определён намеренно. Для `int` специализация не подходит, остаётся основной шаблон, а тела у него нет — и ошибка возникает в той строке, где шаблон использован не по назначению.
+
+Ровно так объявлен `std::function` (лекция 10). В `std::function<int(int, int)>` угловые скобки получают одну сигнатуру, а частичная специализация достаёт из неё возвращаемый тип и типы параметров, чтобы объявить `operator()` с нужными параметрами:
+
+```cpp
+template <typename Signature>
+class function;
+
+template <typename R, typename... Args>
+class function<R(Args...)> {
+public:
+    R operator()(Args... args) const;
+    // ...
+};
+```
 
 ## 6. Правила вывода типов
 
@@ -405,7 +446,7 @@ sum(2.0, 3.0);      // CE: double не удовлетворяет std::integral
 - **Раскрытие пакета** работает в разных контекстах: список аргументов, initializer list, список баз класса.
 - **`if constexpr` (C++17):** невыбранная ветка не инстанцируется. Убирает отдельную функцию для базы рекурсии. Вне шаблона отброшенная ветка всё равно проверяется целиком: от вывода возвращаемого типа она скрыта, но платформенный код за ней не спрятать — это работа `#ifdef`.
 - **Fold expressions (C++17):** `(args + ...)`, четыре формы. Fold по `,` для «выполни для каждого». Бинарные формы для пустых пакетов. В C++26 к ним добавляется цикл по пакету `template for`.
-- **Применения:** `make_unique`, `tuple`, `format`, ваши factory-функции — везде на variadic templates.
+- **Применения:** `make_unique`, `tuple`, `format`, ваши factory-функции — везде на variadic templates. Пакет работает и в паттерне частичной специализации: `SignatureInfo<R(Args...)>` разбирает сигнатуру на возвращаемый тип и типы параметров — так объявлен `std::function`.
 - **Вывод типов в шаблонах:** для `T` отбрасываются ссылки и `const` самого аргумента, массив распадается до указателя; для `T&` `const` сохраняется в `T`; `const T&` принимает всё. По тем же правилам выводятся `auto` в возвращаемом типе (C++14) и `auto` в параметрах (C++20).
 
 ## Что дальше
