@@ -1,4 +1,4 @@
-#include <rule.h>
+#include "rule.h"
 
 namespace nano_edr {
     RuleBase::RuleBase(const std::string& id, Severity severity) : id_(id), severity_(severity) {}

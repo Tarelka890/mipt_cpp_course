@@ -1,7 +1,7 @@
 #pragma once
 
-#include <os_handle.h>
-#include <event_source.h>
+#include "os_handle.h"
+#include "event_source.h"
 
 namespace nano_edr {
     class OsSource : public IEventSource{

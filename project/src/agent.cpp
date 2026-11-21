@@ -1,7 +1,7 @@
-#include <agent.h>
-#include <agent_rules.h>
+#include "agent.h"
+#include "agent_rules.h"
 
-#include <parse.h>
+#include "parse.h"
 #include <rules.h>
 #include <iostream>
 
@@ -17,7 +17,7 @@ namespace nano_edr{
     }
 
     void Agent::OnTick(){
-        //...
+        
     }
     
     void Agent::HandleEvent(const Event& event){
