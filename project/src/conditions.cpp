@@ -1,7 +1,6 @@
 #include "conditions.h"
 #include "fields.h"
-
-#include <text.h>
+#include "text.h"
 
 namespace nano_edr {
     bool FieldEquals::Matches(const Event& event) const{
@@ -57,7 +56,7 @@ namespace nano_edr {
 
     bool AnyOf::Matches(const Event& event) const{
         for (size_t i=0;i<size();i++){
-            if (!(*parts_[i])(event)) return true;
+            if ((*parts_[i])(event)) return true;
         }   
         return false;
     }

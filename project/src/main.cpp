@@ -1,5 +1,4 @@
 #include <cstdio>
-#include <cstring>
 #include <fstream>
 #include <print>
 #include <string>
@@ -8,11 +7,9 @@
 
 #include "parse.h"
 #include "event_list.h"
-#include "rules.h"
 #include "event.h"
 #include "fields.h"
 #include "os_handle.h"
-#include "os.h"
 #include "event_source.h"
 
 #include "file_source.h"
@@ -24,7 +21,6 @@ struct Config {
     std::string log_path;
     bool quiet = false;
     bool run_os = true;
-    long long window_size = 64;
 };
 
 bool ParseArguments(int argc, char** argv, Config& config){
@@ -38,18 +34,6 @@ bool ParseArguments(int argc, char** argv, Config& config){
     for (int i=1;i<argc;i++){
         if (std::string_view(argv[i]) == "--quiet"){
             config.quiet = true;
-        }
-        else if (std::string_view(argv[i]) == "--window-size"){
-            if (i+1 < argc){
-                auto [ptr, ec] = std::from_chars(argv[i+1], argv[i+1] + std::strlen(argv[i+1]), config.window_size);
-                if (ec != std::errc{}){
-                    config.window_size = 64;
-                }
-                ++i;
-            }
-            else {
-                return false;
-            }
         }
         else if (std::string_view(argv[i]) == "--file"){
             if (i+1 < argc){
@@ -91,7 +75,7 @@ int main(int argc, char** argv) {
             return 2;
         }
 
-        nano_edr::Agent agent(config.window_size, config.quiet);
+        nano_edr::Agent agent(config.quiet);
 
         std::unique_ptr<nano_edr::IEventSource> source;
 
