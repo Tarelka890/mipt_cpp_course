@@ -16,9 +16,12 @@
 #include "os_source.h"
 #include "agent_rules.h"
 #include "agent.h"
+#include "edr_handle.h"
+#include "field_traits.h"
 
 struct Config {
     std::string log_path;
+    std::string out;
     bool quiet = false;
     bool run_os = true;
 };
@@ -30,6 +33,7 @@ bool ParseArguments(int argc, char** argv, Config& config){
     }
 
     bool path_set = false;
+    bool out_set = false;
 
     for (int i=1;i<argc;i++){
         if (std::string_view(argv[i]) == "--quiet"){
@@ -41,6 +45,17 @@ bool ParseArguments(int argc, char** argv, Config& config){
                 path_set = true;
                 config.log_path = argv[i+1];
                 config.run_os = false;
+                ++i;
+            }
+            else{
+                return false;
+            }
+        }
+        else if (std::string_view(argv[i]) == "--out"){
+            if (i+1 < argc){
+                if (out_set) return false;
+                out_set = true;
+                config.out = argv[i+1];
                 ++i;
             }
             else{
@@ -75,7 +90,14 @@ int main(int argc, char** argv) {
             return 2;
         }
 
-        nano_edr::Agent agent(config.quiet);
+        nano_edr::EdrHandle edr(config.log_path);
+        const std::string text = edr.Config("dedup_period_ms", "10000");
+        uint64_t dedup_period_ms = 0;
+        if (!nano_edr::FieldTraits<uint64_t>::Parse(text, &dedup_period_ms)) {
+            std::print(stderr, "[WARN] dedup_period_ms не разбирается: {}\n", text);
+            dedup_period_ms = 10000;
+        }
+        nano_edr::Agent agent(config.quiet, dedup_period_ms);
 
         std::unique_ptr<nano_edr::IEventSource> source;
 
@@ -85,8 +107,19 @@ int main(int argc, char** argv) {
         else{
             source = std::make_unique<nano_edr::FileSource>(config.log_path);
         }
-        source->Run(&agent);
 
+        nano_edr::FanOutSink targets;
+        targets.Add(nano_edr::ConsoleSink());
+        targets.Add(nano_edr::EdrSink(&edr));
+        if (!config.out.empty()) {
+            targets.Add(nano_edr::FileSink(config.out));
+        }
+        agent.Subscribe(std::move(targets));
+
+        source->Run(&agent);
+        if (edr.Flush() != EDR_OK) {
+            std::print(stderr, "[WARN] детекты не отправлены\n");
+        }
         agent.PrintSummary();
     
         return 0;
