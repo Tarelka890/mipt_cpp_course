@@ -39,9 +39,8 @@ namespace nano_edr{
             window_.PushBack(std::move(entry));
             return;  
         }
-        window_.PushBack(std::move(entry));
         engine_.ProcessEvent(event, &fired);
-        
+        window_.PushBack(std::move(entry));
     }
 
     void Agent::PrintSummary(){
