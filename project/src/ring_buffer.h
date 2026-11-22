@@ -49,6 +49,15 @@ class RingBuffer {
         }
     }
 
+    void PushBack(T&& value){
+        arr_[next_] = std::move(value);
+        next_++;
+        if (next_ == N){
+            next_ = 0;
+            is_full_ = true;
+        }
+    }
+
     void Clear(){
         next_ = 0;
         is_full_ = false;
